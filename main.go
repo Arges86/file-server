@@ -3,14 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
+	"file-server/config"
 	"file-server/database"
 	"file-server/parser"
 )
 
-var db *database.Files
+var db *database.Database
 
 type Response struct {
 	Message    string `json:"message,omitempty"`
@@ -20,9 +22,15 @@ type Response struct {
 func main() {
 
 	var err error
-	db, err = database.New()
+
+	conf, err := config.NewConfig()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+	}
+
+	db, err = database.New(conf.Database.File)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	mux := http.NewServeMux()
@@ -31,8 +39,17 @@ func main() {
 	mux.HandleFunc("POST /files", addFile)
 	mux.HandleFunc("GET /files/{name}", getOneFile)
 
-	http.ListenAndServe("localhost:4200", mux)
+	addr := fmt.Sprintf("%s:%s", conf.Server.Host, conf.Server.Port)
 
+	fmt.Printf("Server started: %s \n", addr)
+
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		if err == http.ErrServerClosed {
+			// Normal interrupt operation, ignore
+		} else {
+			log.Fatalf("Server failed to start due to err: %v", err)
+		}
+	}
 }
 
 func getNames(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +57,8 @@ func getNames(w http.ResponseWriter, r *http.Request) {
 	files, err := db.GetAll()
 	if err != nil {
 		fmt.Println(err)
+		responseMessage(w, "Error retrieving files", http.StatusInternalServerError)
+		return
 	}
 
 	bytes, _ := json.MarshalIndent(files, "", "  ")
@@ -56,9 +75,9 @@ func addFile(w http.ResponseWriter, r *http.Request) {
 
 	file, handler, err := r.FormFile("file")
 	if err != nil {
-		fmt.Println("Error Retrieving the File")
+		fmt.Println("Error Retrieving the file")
 		fmt.Println(err)
-		responseMessage(w, "Error Retrieving the File", http.StatusInternalServerError)
+		responseMessage(w, "Error retrieving the file", http.StatusInternalServerError)
 		return
 	}
 	defer file.Close()
@@ -70,7 +89,7 @@ func addFile(w http.ResponseWriter, r *http.Request) {
 
 	// if file isn't a CSV, reject it
 	if fileParts[1] != "csv" {
-		responseMessage(w, "file must be a csv file to uplaod", http.StatusUnsupportedMediaType)
+		responseMessage(w, "file must be a csv file to upload", http.StatusUnsupportedMediaType)
 		return
 	}
 

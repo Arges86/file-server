@@ -7,8 +7,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const file string = "./files.db"
-
 const create string = `
 CREATE TABLE IF NOT EXISTS "files" (
 	"id"	INTEGER NOT NULL,
@@ -18,9 +16,7 @@ CREATE TABLE IF NOT EXISTS "files" (
 	PRIMARY KEY("id" AUTOINCREMENT)
 );`
 
-type Files struct {
-	// mu    sync.Mutex
-	// files []File
+type Database struct {
 	db *sql.DB
 }
 
@@ -31,7 +27,7 @@ type File struct {
 	Data string    `json:"data,omitempty"`
 }
 
-func New() (*Files, error) {
+func New(file string) (*Database, error) {
 	db, err := sql.Open("sqlite3", file)
 	if err != nil {
 		return nil, err
@@ -40,13 +36,13 @@ func New() (*Files, error) {
 		return nil, err
 	}
 
-	return &Files{
+	return &Database{
 		db: db,
 	}, nil
 }
 
 /** lists all files and their timestamps **/
-func (c *Files) GetAll() ([]File, error) {
+func (c *Database) GetAll() ([]File, error) {
 	var output []File
 	rows, err := c.db.Query("SELECT id, time, name FROM files")
 	if err != nil {
@@ -66,7 +62,7 @@ func (c *Files) GetAll() ([]File, error) {
 }
 
 /** Gets a specific file **/
-func (c *Files) GetFile(name string) (string, error) {
+func (c *Database) GetFile(name string) (string, error) {
 	row := c.db.QueryRow("SELECT data FROM files where name =  ?", name)
 	file := File{}
 
@@ -77,7 +73,7 @@ func (c *Files) GetFile(name string) (string, error) {
 }
 
 /** INSERTS or UPDATES a file based on the `name` **/
-func (c *Files) SaveFile(data string, name string) (int, error) {
+func (c *Database) SaveFile(data string, name string) (int, error) {
 	res, err := c.db.Exec(
 		`INSERT INTO files (data, name)
 		VALUES(?,?)
@@ -85,6 +81,7 @@ func (c *Files) SaveFile(data string, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	var id int64
 	if id, err = res.LastInsertId(); err != nil {
 		return 0, err
