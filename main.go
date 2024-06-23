@@ -21,6 +21,9 @@ type Response struct {
 	StatusCode int    `json:"statusCode"`
 }
 
+const ct = "Content-Type"
+const aj = "application/json"
+
 func main() {
 
 	var err error
@@ -64,7 +67,7 @@ func getNames(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bytes, _ := json.MarshalIndent(files, "", "  ")
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ct, aj)
 	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
 }
@@ -95,8 +98,11 @@ func addFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	separator := r.FormValue("separator")
+	comma := getComma(separator)
+
 	// parses input into json string
-	data, err := parser.ReadAndParseCsv(file)
+	data, err := parser.ReadAndParseCsv(file, comma)
 	if err != nil {
 		responseMessage(w, fmt.Sprintf("error while handling csv file: %s", err), http.StatusInternalServerError)
 		return
@@ -140,7 +146,7 @@ func getOneFile(w http.ResponseWriter, r *http.Request) {
 
 	file = filterResponse(file, key, value)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ct, aj)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(file))
 }
@@ -151,8 +157,8 @@ func responseMessage(w http.ResponseWriter, message string, status int) {
 		StatusCode: status,
 	}
 	bytes, _ := json.MarshalIndent(response, "", "  ")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotFound)
+	w.Header().Set(ct, aj)
+	w.WriteHeader(status)
 	w.Write(bytes)
 }
 
@@ -164,5 +170,21 @@ func filterResponse(file, key, value string) string {
 		return res.String()
 	} else {
 		return file
+	}
+}
+
+// gets rune from some common csv delimiters
+func getComma(comma string) rune {
+	switch comma {
+	case ",":
+		return ','
+	case "|":
+		return '|'
+	case ";":
+		return ';'
+	case "~":
+		return '~'
+	default:
+		return ','
 	}
 }

@@ -11,11 +11,12 @@ import (
 	"strings"
 )
 
-func ReadAndParseCsv(csvFile io.Reader) ([][]string, error) {
+func ReadAndParseCsv(csvFile io.Reader, comma rune) ([][]string, error) {
 
 	var rows [][]string
 
 	reader := csv.NewReader(csvFile)
+	reader.Comma = comma
 	for {
 		row, err := reader.Read()
 		if err == io.EOF {

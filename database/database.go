@@ -25,6 +25,7 @@ type File struct {
 	Time time.Time `json:"last_updated,omitempty"`
 	Name string    `json:"name,omitempty"`
 	Data string    `json:"data,omitempty"`
+	Size string    `json:"size,omitempty"`
 }
 
 func New(file string) (*Database, error) {
@@ -44,7 +45,7 @@ func New(file string) (*Database, error) {
 /** lists all files and their timestamps **/
 func (c *Database) GetAll() ([]File, error) {
 	var output []File
-	rows, err := c.db.Query("SELECT id, time, name FROM files")
+	rows, err := c.db.Query("SELECT id, time, name, (ROUND((length(data) / 1024.0), 2) || ' KB') as size FROM files")
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (c *Database) GetAll() ([]File, error) {
 
 	for rows.Next() {
 		i := File{}
-		err = rows.Scan(&i.ID, &i.Time, &i.Name)
+		err = rows.Scan(&i.ID, &i.Time, &i.Name, &i.Size)
 		if err != nil {
 			return nil, err
 		}
