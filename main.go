@@ -10,6 +10,8 @@ import (
 	"file-server/config"
 	"file-server/database"
 	"file-server/parser"
+
+	"github.com/tidwall/gjson"
 )
 
 var db *database.Database
@@ -119,11 +121,24 @@ func addFile(w http.ResponseWriter, r *http.Request) {
 func getOneFile(w http.ResponseWriter, r *http.Request) {
 
 	name := r.PathValue("name")
+	values := r.URL.Query()
+
+	// gets 'any' query parameter as a key value pair
+	var key, value string
+	if len(values) > 0 {
+		for k, v := range values {
+			key = k
+			value = v[0]
+		}
+	}
+
 	file, err := db.GetFile(name)
 	if err != nil {
 		responseMessage(w, fmt.Sprintf("%s not found", name), http.StatusNotFound)
 		return
 	}
+
+	file = filterResponse(file, key, value)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -139,4 +154,15 @@ func responseMessage(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 	w.Write(bytes)
+}
+
+// if `key` is present, filters file based on key/value pair
+func filterResponse(file, key, value string) string {
+	if len(key) > 0 {
+		path := fmt.Sprintf(`#(%s=="%s")#`, key, value)
+		res := gjson.Parse(file).Get(path)
+		return res.String()
+	} else {
+		return file
+	}
 }
